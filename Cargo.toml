@@ -1,0 +1,16 @@
+[package]
+name = "wgman-core"
+version = "0.1.0"
+authors = ["ashley"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+uuid = "0.8"
+ipnetwork = "0.17.0"
+base64 = "0.13.0"
+sqlx = { git = "https://github.com/launchbadge/sqlx.git", features = [ "runtime-tokio-rustls", "uuid", "ipnetwork", "postgres" ] }
+ring = "0.16.19"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
