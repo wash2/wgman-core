@@ -5,6 +5,7 @@ authors = ["Ashley Wulber"]
 edition = "2018"
 repository = "https://github.com/wash2/wgman-core.git"
 license = "Apache-2.0"
+description = "core for wgman crate"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
