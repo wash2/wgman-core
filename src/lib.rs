@@ -43,26 +43,26 @@ pub mod types {
     use base64::decode;
 
     #[derive(Debug, Clone, sqlx::FromRow)]
-    pub struct User {
+    pub struct Admin {
         pub id: Uuid,
-        pub name: String,
-        pub is_admin: bool,
+        pub u_name: String,
+        pub is_root: bool,
     }
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
-    pub struct ApiUser {
-        pub name: String,
-        pub is_admin: bool,
+    pub struct ApiAdmin {
+        pub u_name: String,
+        pub is_root: bool,
     }
 
-    impl From<User> for ApiUser {
-        fn from(User { name, is_admin, .. }: User) -> Self {
-            ApiUser { name, is_admin }
+    impl From<Admin> for ApiAdmin {
+        fn from(Admin { u_name, is_root, .. }: Admin) -> Self {
+            ApiAdmin { u_name, is_root }
         }
     }
 
     #[derive(Debug, Clone, sqlx::FromRow)]
-    pub struct UserPassword {
+    pub struct AdminPassword {
         pub id: Uuid,
         pub password_hash: String,
         pub salt: String,
@@ -71,7 +71,7 @@ pub mod types {
     #[derive(Debug, Clone, sqlx::FromRow)]
     pub struct Interface {
         pub id: Uuid,
-        pub name: String,
+        pub u_name: String,
         pub public_key: Option<String>,
         pub port: Option<i32>,
         pub ip: Option<IpNetwork>,
@@ -80,7 +80,7 @@ pub mod types {
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
     pub struct ApiInterface {
-        pub name: String,
+        pub u_name: String,
         pub public_key: Option<String>,
         pub port: Option<i32>,
         pub ip: Option<IpNetwork>,
@@ -88,8 +88,8 @@ pub mod types {
     }
 
     impl From<Interface> for ApiInterface {
-        fn from(Interface { name, public_key, port, ip, fqdn, .. }: Interface) -> Self {
-            ApiInterface {name, public_key, port, ip, fqdn,}
+        fn from(Interface { u_name, public_key, port, ip, fqdn, .. }: Interface) -> Self {
+            ApiInterface {u_name, public_key, port, ip, fqdn,}
         }
     }
 
@@ -162,13 +162,13 @@ pub mod types {
 
     #[derive(Debug, Clone)]
     pub enum AuthKind {
-        User,
+        Admin,
         Interface,
     }
 
     impl Default for AuthKind {
         fn default() -> Self {
-            AuthKind::User
+            AuthKind::Admin
         }
     }
 }
