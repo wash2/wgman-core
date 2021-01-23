@@ -64,8 +64,8 @@ pub mod types {
     #[derive(Debug, Clone, sqlx::FromRow)]
     pub struct AdminPassword {
         pub id: Uuid,
-        pub password_hash: String,
-        pub salt: String,
+        pub password_hash: Vec<u8>,
+        pub salt: Vec<u8>,
     }
 
     #[derive(Debug, Clone, sqlx::FromRow)]
@@ -96,8 +96,8 @@ pub mod types {
     #[derive(Debug, Clone, sqlx::FromRow)]
     pub struct InterfacePassword {
         pub id: Uuid,
-        pub password_hash: String,
-        pub salt: String,
+        pub password_hash: Vec<u8>,
+        pub salt: Vec<u8>,
     }
 
     #[derive(Debug, Clone, sqlx::FromRow)]
