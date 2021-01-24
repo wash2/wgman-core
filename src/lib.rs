@@ -138,7 +138,7 @@ pub mod types {
         pub salt: Vec<u8>,
     }
 
-    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
     pub struct ApiInterfacePassword {
         pub u_name: String,
         pub password: String,
@@ -158,7 +158,7 @@ pub mod types {
         }
     }
 
-    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
     pub struct ApiAdminPassword {
         pub u_name: String,
         pub password: String,
