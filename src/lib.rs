@@ -35,9 +35,10 @@ pub mod config {
 }
 
 pub mod types {
-    use std::{error::Error, str::FromStr};
+    use std::{convert::TryFrom, error::Error, str::FromStr};
 
-    use serde::{Deserialize, Serialize};
+    use ring::error::Unspecified;
+    use serde::{ Deserialize, Serialize };
     use ipnetwork::IpNetwork;
     use uuid::Uuid;
     use base64::decode;
@@ -47,6 +48,21 @@ pub mod types {
         pub id: Uuid,
         pub u_name: String,
         pub is_root: bool,
+    }
+
+    impl TryFrom<ApiAdmin> for Admin {
+        type Error = ring::error::Unspecified;
+
+        fn try_from(ApiAdmin{ u_name, is_root }: ApiAdmin) -> Result<Self, Self::Error> {
+            match u_name {
+                s if s.contains(":") => Err(Unspecified),
+                _ => Ok(Admin {
+                    id: (Default::default()),
+                    u_name,
+                    is_root,
+                })
+            }
+        }
     }
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -76,6 +92,24 @@ pub mod types {
         pub port: Option<i32>,
         pub ip: Option<IpNetwork>,
         pub fqdn: Option<String>,
+    }
+
+    impl TryFrom<ApiInterface> for Interface {
+        type Error = ring::error::Unspecified;
+
+        fn try_from(ApiInterface { u_name, public_key, port, ip, fqdn }: ApiInterface) -> Result<Self, Self::Error> {
+            match u_name {
+                s if s.contains(":") => Err(Unspecified),
+                _ => Ok(Interface {
+                    id: Default::default(),
+                    u_name,
+                    public_key,
+                    port,
+                    ip,
+                    fqdn,
+                })
+            }
+        }
     }
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -108,6 +142,12 @@ pub mod types {
         pub endpoint_name: String,
         pub endpoint_allowed_ip: Vec<IpNetwork>,
         pub peer_allowed_ip: Vec<IpNetwork>,
+    }
+
+    impl From<ApiPeerRelation> for PeerRelation {
+        fn from(ApiPeerRelation { peer_name, endpoint_name, endpoint_allowed_ip, peer_allowed_ip, }: ApiPeerRelation) -> Self {
+            PeerRelation { endpoint_id: Default::default(), peer_id: Default::default(), peer_name, endpoint_name, endpoint_allowed_ip, peer_allowed_ip, }
+        }
     }
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -184,7 +224,6 @@ pub mod auth {
         pub salt: [u8; digest::SHA512_OUTPUT_LEN],
     }
     
-
     pub fn encrypt(password: &str) -> Result<Hash, Unspecified> {
         const CREDENTIAL_LEN: usize = digest::SHA512_OUTPUT_LEN;
         let n_iter = NonZeroU32::new(100_000).unwrap();
@@ -214,5 +253,20 @@ pub mod auth {
             password.as_bytes(),
             pbkdf2_hash,
         )
+    }
+}
+
+#[cfg(test)]
+mod testd {
+    use auth::verify;
+
+    use super::*;
+
+    #[test]
+    fn test_inverse_auth() {
+        // assert_eq!(add(1, 2), 3);
+
+        let h1: auth::Hash = auth::encrypt("poopoo").unwrap();
+        auth::verify(&h1, "poopoo").unwrap();
     }
 }
