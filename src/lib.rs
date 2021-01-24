@@ -43,7 +43,9 @@ pub mod types {
     use uuid::Uuid;
     use base64::decode;
 
-    #[derive(Debug, Clone, sqlx::FromRow)]
+    use crate::auth::encrypt;
+
+    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct Admin {
         pub id: Uuid,
         pub u_name: String,
@@ -65,7 +67,7 @@ pub mod types {
         }
     }
 
-    #[derive(Debug, Clone, Deserialize, Serialize)]
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
     pub struct ApiAdmin {
         pub u_name: String,
         pub is_root: bool,
@@ -77,14 +79,15 @@ pub mod types {
         }
     }
 
-    #[derive(Debug, Clone, sqlx::FromRow)]
+    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct AdminPassword {
         pub id: Uuid,
+        pub u_name: String,
         pub password_hash: Vec<u8>,
         pub salt: Vec<u8>,
     }
 
-    #[derive(Debug, Clone, sqlx::FromRow)]
+    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct Interface {
         pub id: Uuid,
         pub u_name: String,
@@ -112,7 +115,7 @@ pub mod types {
         }
     }
 
-    #[derive(Debug, Clone, Deserialize, Serialize)]
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
     pub struct ApiInterface {
         pub u_name: String,
         pub public_key: Option<String>,
@@ -127,14 +130,55 @@ pub mod types {
         }
     }
 
-    #[derive(Debug, Clone, sqlx::FromRow)]
+    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct InterfacePassword {
         pub id: Uuid,
+        pub u_name: String,
         pub password_hash: Vec<u8>,
         pub salt: Vec<u8>,
     }
 
-    #[derive(Debug, Clone, sqlx::FromRow)]
+    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
+    pub struct ApiInterfacePassword {
+        pub u_name: String,
+        pub password: String,
+    }
+
+    impl TryFrom<ApiInterfacePassword> for InterfacePassword {
+        type Error = ring::error::Unspecified;
+
+        fn try_from(ApiInterfacePassword { u_name, password }: ApiInterfacePassword) -> Result<Self, Self::Error> {
+            let hash = encrypt(&password)?;
+            Ok(InterfacePassword {
+                    id: Default::default(),
+                    u_name,
+                    password_hash: hash.pbkdf2_hash.into(),
+                    salt: hash.salt.into(),
+            })
+        }
+    }
+
+    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
+    pub struct ApiAdminPassword {
+        pub u_name: String,
+        pub password: String,
+    }
+
+    impl TryFrom<ApiAdminPassword> for AdminPassword {
+        type Error = ring::error::Unspecified;
+
+        fn try_from(ApiAdminPassword { u_name, password }: ApiAdminPassword) -> Result<Self, Self::Error> {
+            let hash = encrypt(&password)?;
+            Ok(AdminPassword {
+                    id: Default::default(),
+                    u_name,
+                    password_hash: hash.pbkdf2_hash.into(),
+                    salt: hash.salt.into(),
+            })
+        }
+    }
+
+    #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct PeerRelation {
         pub endpoint_id: Uuid,
         pub peer_id: Uuid,
@@ -150,7 +194,7 @@ pub mod types {
         }
     }
 
-    #[derive(Debug, Clone, Deserialize, Serialize)]
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
     pub struct ApiPeerRelation {
         pub endpoint_name: String,
         pub peer_name: String,
@@ -164,7 +208,7 @@ pub mod types {
         }
     }
 
-    #[derive(Debug, Default, Clone)]
+    #[derive(PartialEq, Eq, Debug, Default, Clone)]
     pub struct BasicAuth {
         pub name: String,
         pub password: String
@@ -200,7 +244,7 @@ pub mod types {
         }
 
 
-    #[derive(Debug, Clone)]
+    #[derive(PartialEq, Eq, Debug, Clone)]
     pub enum AuthKind {
         Admin,
         Interface,
@@ -256,8 +300,9 @@ pub mod auth {
     }
 }
 
+// TODO add unit tests validation functions
 #[cfg(test)]
-mod testd {
+mod tests {
     use auth::verify;
 
     use super::*;
