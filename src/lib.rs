@@ -41,7 +41,8 @@ pub mod types {
     use serde::{ Deserialize, Serialize };
     use ipnetwork::IpNetwork;
     use uuid::Uuid;
-    use base64::decode;
+    use base64::{encode, decode};
+    use std::fmt;
 
     use crate::auth::encrypt;
 
@@ -182,29 +183,29 @@ pub mod types {
     pub struct PeerRelation {
         pub endpoint_id: Uuid,
         pub peer_id: Uuid,
-        pub peer_name: String,
-        pub endpoint_name: String,
+        pub peer_public_key: String,
+        pub endpoint_public_key: String,
         pub endpoint_allowed_ip: Vec<IpNetwork>,
         pub peer_allowed_ip: Vec<IpNetwork>,
     }
 
     impl From<ApiPeerRelation> for PeerRelation {
-        fn from(ApiPeerRelation { peer_name, endpoint_name, endpoint_allowed_ip, peer_allowed_ip, }: ApiPeerRelation) -> Self {
-            PeerRelation { endpoint_id: Default::default(), peer_id: Default::default(), peer_name, endpoint_name, endpoint_allowed_ip, peer_allowed_ip, }
+        fn from(ApiPeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }: ApiPeerRelation) -> Self {
+            PeerRelation { endpoint_id: Default::default(), peer_id: Default::default(), peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }
         }
     }
 
     #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
     pub struct ApiPeerRelation {
-        pub endpoint_name: String,
-        pub peer_name: String,
+        pub endpoint_public_key: String,
+        pub peer_public_key: String,
         pub endpoint_allowed_ip: Vec<IpNetwork>,
         pub peer_allowed_ip: Vec<IpNetwork>,
     }
     
     impl From<PeerRelation> for ApiPeerRelation {
-        fn from(PeerRelation { peer_name, endpoint_name, endpoint_allowed_ip, peer_allowed_ip, .. }: PeerRelation) -> Self {
-            ApiPeerRelation { peer_name, endpoint_name, endpoint_allowed_ip, peer_allowed_ip, }
+        fn from(PeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, .. }: PeerRelation) -> Self {
+            ApiPeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }
         }
     }
 
@@ -214,35 +215,47 @@ pub mod types {
         pub password: String
     }
 
-        // Warning:: only intended to be used with base64 authorization header
-        impl FromStr for BasicAuth {
-            type Err = Box<dyn Error>;
+    // Warning:: only intended to be used with base64 authorization header
+    impl FromStr for BasicAuth {
+        type Err = Box<dyn Error>;
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match &s[..5] {
-                    "Basic" => {
-                        let decoded = decode(&s[6..])?;
-                        let auth_string = std::str::from_utf8(&decoded[..])?;
-                        let colon_indx = match auth_string.find(":") {
-                            Some(indx) => {
-                                if indx < auth_string.len() - 1 {
-                                    indx
-                                }
-                                else {
-                                    Err("Invalid Login")?
-                                }
-                            },
-                            None => {Err("Invalid Login")?}
-                        };
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            match &s[..5] {
+                "Basic" => {
+                    let decoded = decode(&s[6..])?;
+                    let auth_string = std::str::from_utf8(&decoded[..])?;
+                    let colon_indx = match auth_string.find(":") {
+                        Some(indx) => {
+                            if indx < auth_string.len() - 1 {
+                                indx
+                            }
+                            else {
+                                Err("Invalid Login")?
+                            }
+                        },
+                        None => {Err("Invalid Login")?}
+                    };
 
-                        Ok(BasicAuth { name: auth_string[..colon_indx].into(), password: auth_string[colon_indx + 1..].into() })
-                            
-                    }
-                    _ => Err("Invalid Login")?
+                    Ok(BasicAuth { name: auth_string[..colon_indx].into(), password: auth_string[colon_indx + 1..].into() })
+                        
                 }
+                _ => Err("Invalid Login")?
             }
         }
+    }
 
+    // Warning:: only intended to be used with base64 authorization header
+    impl fmt::Display for BasicAuth {
+        // This trait requires `fmt` with this exact signature.
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            // Write strictly the first element into the supplied output
+            // stream: `f`. Returns `fmt::Result` which indicates whether the
+            // operation succeeded or failed. Note that `write!` uses syntax which
+            // is very similar to `println!`.
+            let encoded_auth = encode(format!("{}:{}", self.name, self.password));
+            write!(f, "Basic {}", encoded_auth)
+        }
+    }
 
     #[derive(PartialEq, Eq, Debug, Clone)]
     pub enum AuthKind {
