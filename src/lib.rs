@@ -125,6 +125,27 @@ pub mod types {
         pub fqdn: Option<String>,
     }
 
+    impl ApiInterface {
+        pub fn coallesce(&mut self, other: Self) {
+            match other.public_key {
+                Some(v) => self.public_key = Some(v),
+                None => {}
+            };
+            match other.port {
+                Some(v) => self.port = Some(v),
+                None => {}
+            };
+            match other.ip {
+                Some(v) => self.ip = Some(v),
+                None => {}
+            };
+            match other.fqdn {
+                Some(v) => self.fqdn = Some(v),
+                None => {}
+            };
+        }
+    }
+
     impl From<Interface> for ApiInterface {
         fn from(Interface { u_name, public_key, port, ip, fqdn, .. }: Interface) -> Self {
             ApiInterface {u_name, public_key, port, ip, fqdn,}
@@ -185,8 +206,8 @@ pub mod types {
         pub peer_id: Uuid,
         pub peer_public_key: String,
         pub endpoint_public_key: String,
-        pub endpoint_allowed_ip: Vec<IpNetwork>,
-        pub peer_allowed_ip: Vec<IpNetwork>,
+        pub endpoint_allowed_ip: Option<Vec<IpNetwork>>,
+        pub peer_allowed_ip: Option<Vec<IpNetwork>>,
     }
 
     impl From<ApiPeerRelation> for PeerRelation {
@@ -199,14 +220,74 @@ pub mod types {
     pub struct ApiPeerRelation {
         pub endpoint_public_key: String,
         pub peer_public_key: String,
-        pub endpoint_allowed_ip: Vec<IpNetwork>,
-        pub peer_allowed_ip: Vec<IpNetwork>,
+        pub endpoint_allowed_ip: Option<Vec<IpNetwork>>,
+        pub peer_allowed_ip: Option<Vec<IpNetwork>>,
     }
     
     impl From<PeerRelation> for ApiPeerRelation {
         fn from(PeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, .. }: PeerRelation) -> Self {
             ApiPeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }
         }
+    }
+
+    impl ApiPeerRelation {
+        pub fn coallesce(&mut self, other: Self) {
+            match other.endpoint_allowed_ip {
+                Some(allowed_ip) => self.endpoint_allowed_ip = Some(allowed_ip),
+                None => {}
+            };
+            match other.peer_allowed_ip {
+                Some(allowed_ip) => self.peer_allowed_ip = Some(allowed_ip),
+                None => {}
+            };
+        }
+    }
+
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
+    pub struct InterfaceConfigPeer {
+        pub public_key: String,
+        pub allowed_ip: Vec<IpNetwork>,
+        pub endpoint: Option<String>
+    }
+    
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
+    pub struct InterfaceConfig {
+        pub interface: ApiInterface,
+        pub peers: Vec<InterfaceConfigPeer>
+    }
+    
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
+    pub struct ApiConfig {
+        pub interface: ApiInterface,
+        pub peers: Vec<ApiPeerRelation>
+    }
+    
+    impl From<InterfaceConfig> for ApiConfig {
+        fn from(InterfaceConfig { interface, peers } : InterfaceConfig) -> Self {
+            Self {
+                interface: interface.clone(),
+                peers: peers.iter().map(|p| match &p.endpoint {
+                    Some(_) => ApiPeerRelation {
+                            endpoint_public_key: p.public_key.clone(),
+                            peer_public_key: interface.public_key.as_ref().unwrap().to_string(),
+                            endpoint_allowed_ip: None,
+                            peer_allowed_ip: Some(p.allowed_ip.clone()),
+                        },
+                    None => ApiPeerRelation {
+                            endpoint_public_key: interface.public_key.as_ref().unwrap().to_string(),
+                            peer_public_key: p.public_key.clone(),
+                            endpoint_allowed_ip: Some(p.allowed_ip.clone()),
+                            peer_allowed_ip: None,
+                        }
+                })
+                .collect(),
+            }
+        }
+    }
+    
+    pub enum InterfaceConfigBlockKind {
+        Interface,
+        Peer
     }
 
     #[derive(PartialEq, Eq, Debug, Default, Clone)]
