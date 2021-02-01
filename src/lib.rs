@@ -40,7 +40,6 @@ pub mod types {
     use ring::error::Unspecified;
     use serde::{ Deserialize, Serialize };
     use ipnetwork::IpNetwork;
-    use uuid::Uuid;
     use base64::{encode, decode};
     use std::fmt;
 
@@ -48,7 +47,6 @@ pub mod types {
 
     #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct Admin {
-        pub id: Uuid,
         pub u_name: String,
         pub is_root: bool,
     }
@@ -60,7 +58,6 @@ pub mod types {
             match u_name {
                 s if s.contains(":") => Err(Unspecified),
                 _ => Ok(Admin {
-                    id: (Default::default()),
                     u_name,
                     is_root,
                 })
@@ -82,7 +79,6 @@ pub mod types {
 
     #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct AdminPassword {
-        pub id: Uuid,
         pub u_name: String,
         pub password_hash: Vec<u8>,
         pub salt: Vec<u8>,
@@ -90,7 +86,6 @@ pub mod types {
 
     #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct Interface {
-        pub id: Uuid,
         pub u_name: String,
         pub public_key: Option<String>,
         pub port: Option<i32>,
@@ -105,7 +100,6 @@ pub mod types {
             match u_name {
                 s if s.contains(":") => Err(Unspecified),
                 _ => Ok(Interface {
-                    id: Default::default(),
                     u_name,
                     public_key,
                     port,
@@ -154,7 +148,6 @@ pub mod types {
 
     #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct InterfacePassword {
-        pub id: Uuid,
         pub u_name: String,
         pub password_hash: Vec<u8>,
         pub salt: Vec<u8>,
@@ -172,7 +165,6 @@ pub mod types {
         fn try_from(ApiInterfacePassword { u_name, password }: ApiInterfacePassword) -> Result<Self, Self::Error> {
             let hash = encrypt(&password)?;
             Ok(InterfacePassword {
-                    id: Default::default(),
                     u_name,
                     password_hash: hash.pbkdf2_hash.into(),
                     salt: hash.salt.into(),
@@ -192,7 +184,6 @@ pub mod types {
         fn try_from(ApiAdminPassword { u_name, password }: ApiAdminPassword) -> Result<Self, Self::Error> {
             let hash = encrypt(&password)?;
             Ok(AdminPassword {
-                    id: Default::default(),
                     u_name,
                     password_hash: hash.pbkdf2_hash.into(),
                     salt: hash.salt.into(),
@@ -202,8 +193,6 @@ pub mod types {
 
     #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct PeerRelation {
-        pub endpoint_id: Uuid,
-        pub peer_id: Uuid,
         pub peer_public_key: String,
         pub endpoint_public_key: String,
         pub endpoint_allowed_ip: Option<Vec<IpNetwork>>,
@@ -212,7 +201,7 @@ pub mod types {
 
     impl From<ApiPeerRelation> for PeerRelation {
         fn from(ApiPeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }: ApiPeerRelation) -> Self {
-            PeerRelation { endpoint_id: Default::default(), peer_id: Default::default(), peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }
+            PeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }
         }
     }
 

@@ -1,6 +1,6 @@
 [package]
 name = "wgman-core"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Ashley Wulber"]
 edition = "2018"
 repository = "https://github.com/wash2/wgman-core.git"
