@@ -97,8 +97,9 @@ pub mod types {
         type Error = ring::error::Unspecified;
 
         fn try_from(ApiInterface { u_name, public_key, port, ip, fqdn }: ApiInterface) -> Result<Self, Self::Error> {
-            match u_name {
-                s if s.contains(":") => Err(Unspecified),
+            match (&u_name, &public_key) {
+                (s, _) if s.contains(":") => Err(Unspecified),
+                (_, Some(pk)) if pk.len() != 44 =>  Err(Unspecified),
                 _ => Ok(Interface {
                     u_name,
                     public_key,
@@ -193,29 +194,63 @@ pub mod types {
 
     #[derive(PartialEq, Eq, Debug, Clone, sqlx::FromRow)]
     pub struct PeerRelation {
-        pub peer_public_key: String,
-        pub endpoint_public_key: String,
+        pub peer_name: String,
+        pub endpoint_name: String,
+        pub peer_public_key: Option<String>,
+        pub endpoint_public_key: Option<String>,
         pub endpoint_allowed_ip: Option<Vec<IpNetwork>>,
         pub peer_allowed_ip: Option<Vec<IpNetwork>>,
     }
 
-    impl From<ApiPeerRelation> for PeerRelation {
-        fn from(ApiPeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }: ApiPeerRelation) -> Self {
-            PeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }
+    impl TryFrom<ApiPeerRelation> for PeerRelation {
+        type Error = ring::error::Unspecified;
+
+        fn try_from(ApiPeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, peer_name, endpoint_name, .. }: ApiPeerRelation) -> Result<Self, Self::Error> {
+            match (&peer_public_key, &endpoint_public_key, &peer_name, &endpoint_name) {
+            (Some(ppk), _, _, _) if ppk.len() != 44 => Err(Unspecified),
+            (_, Some(epk), _, _) if epk.len() != 44 => Err(Unspecified),
+            (_, _, None, _) => Err(Unspecified),
+            (_, _, _, None) => Err(Unspecified),
+            (_, _, Some(pn), _) if pn.contains(":") => Err(Unspecified),
+            (_, _, _, Some(en)) if en.contains(":") => Err(Unspecified),
+            _ => Ok(PeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, peer_name: peer_name.unwrap(), endpoint_name: endpoint_name.unwrap() })
+            }
         }
+    }
+
+    #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize, sqlx::FromRow)]
+    pub struct InterfacePeerRelation {
+        pub endpoint_public_key: Option<String>,
+        pub peer_public_key: Option<String>,
+        pub endpoint_allowed_ip: Option<Vec<IpNetwork>>,
+        pub peer_allowed_ip: Option<Vec<IpNetwork>>,
+        pub port: Option<i32>,
+        pub ip: Option<IpNetwork>,
+        pub fqdn: Option<String>,
     }
 
     #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
     pub struct ApiPeerRelation {
-        pub endpoint_public_key: String,
-        pub peer_public_key: String,
+        pub peer_name: Option<String>,
+        pub endpoint_name: Option<String>,
+        pub endpoint_public_key: Option<String>,
+        pub peer_public_key: Option<String>,
         pub endpoint_allowed_ip: Option<Vec<IpNetwork>>,
         pub peer_allowed_ip: Option<Vec<IpNetwork>>,
+        pub endpoint: Option<String>
     }
     
-    impl From<PeerRelation> for ApiPeerRelation {
-        fn from(PeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, .. }: PeerRelation) -> Self {
-            ApiPeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, }
+    impl From<InterfacePeerRelation> for ApiPeerRelation {
+        fn from(pr_interface: InterfacePeerRelation) -> Self {
+            let InterfacePeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, fqdn, ip, port } = pr_interface;
+            let mut endpoint = None;
+            if fqdn.is_some() {
+                endpoint = Some(fqdn.unwrap_or(String::new()));
+            }
+            else if ip.is_some() && port.is_some() {
+                endpoint = Some(format!("{}:{}", ip.unwrap().to_string(), port.unwrap()));
+            }
+            ApiPeerRelation { peer_public_key, endpoint_public_key, endpoint_allowed_ip, peer_allowed_ip, endpoint, peer_name: None, endpoint_name: None }
         }
     }
 
@@ -257,16 +292,22 @@ pub mod types {
                 interface: interface.clone(),
                 peers: peers.iter().map(|p| match &p.endpoint {
                     Some(_) => ApiPeerRelation {
-                            endpoint_public_key: p.public_key.clone(),
-                            peer_public_key: interface.public_key.as_ref().unwrap().to_string(),
+                            endpoint_public_key: Some(p.public_key.clone()),
+                            peer_public_key: interface.public_key.clone(),
                             endpoint_allowed_ip: None,
                             peer_allowed_ip: Some(p.allowed_ip.clone()),
+                            endpoint: p.endpoint.clone(),
+                            peer_name: Some(interface.u_name.clone()),
+                            endpoint_name: None,
                         },
                     None => ApiPeerRelation {
-                            endpoint_public_key: interface.public_key.as_ref().unwrap().to_string(),
-                            peer_public_key: p.public_key.clone(),
+                            endpoint_public_key: interface.public_key.clone(),
+                            peer_public_key: Some(p.public_key.clone()),
                             endpoint_allowed_ip: Some(p.allowed_ip.clone()),
                             peer_allowed_ip: None,
+                            endpoint: None,
+                            peer_name: None,
+                            endpoint_name: Some(interface.u_name.clone()),
                         }
                 })
                 .collect(),
@@ -338,6 +379,13 @@ pub mod types {
             AuthKind::Admin
         }
     }
+
+    /// An API error serializable to JSON.
+    #[derive(PartialEq, Eq, Serialize, Deserialize, Debug)]
+    pub struct ErrorMessage {
+        pub code: u16,
+        pub message: String,
+    }
 }
 
 pub mod auth {
@@ -386,15 +434,13 @@ pub mod auth {
 // TODO add unit tests validation functions
 #[cfg(test)]
 mod tests {
-    use auth::verify;
-
     use super::*;
 
     #[test]
     fn test_inverse_auth() {
         // assert_eq!(add(1, 2), 3);
 
-        let h1: auth::Hash = auth::encrypt("poopoo").unwrap();
-        auth::verify(&h1, "poopoo").unwrap();
+        let h1: auth::Hash = auth::encrypt("test").unwrap();
+        auth::verify(&h1, "test").unwrap();
     }
 }

@@ -9,11 +9,10 @@ description = "core for wgman crate"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-uuid = "0.8"
 ipnetwork = "0.17"
 base64 = "0.13"
 # sqlx = { git = "https://github.com/launchbadge/sqlx.git", features = [ "runtime-tokio-rustls", "uuid", "ipnetwork", "postgres" ] } for tokio 1.0
-sqlx = { version = "0.4", features = [ "runtime-tokio-rustls", "uuid", "ipnetwork", "postgres" ] } 
+sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "uuid", "ipnetwork", "postgres" ] } 
 ring = "0.16"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
